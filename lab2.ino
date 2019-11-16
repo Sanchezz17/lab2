@@ -3,13 +3,15 @@
 #include "button.h"
 
 #define PIN_BUTTON 52
+#define PIN_SERVO 9
+
+Button button(PIN_BUTTON);
 
 Servo servo;
 int servoSpeed = 0;
+int servoInitial = 90;
 const int maxServoDelay = 10;
 const int minServoDelay = 2;
-
-Button button(PIN_BUTTON);
 
 const int boardSize = 8;
 const int maxPointsCount = 64;
@@ -23,37 +25,39 @@ struct Point {
 };
 
 void setup() {
-    servo.attach(9);
+    servo.attach(PIN_SERVO);
     ledDisplay.shutdown(0, false);
     ledDisplay.setIntensity(0, 10);
     ledDisplay.clearDisplay(0);
-    Serial.begin(115200);
 }
 
 void loop() {
     int currentPower = 0;
     if (button.wasPressed())
     {
+      int iterationCount = 0;
       long long beginTime = millis();
       while (button.isHolded())
       {
          long long holdingTime = millis() - beginTime;
          currentPower = convertIntoPercents(holdingTime, maxTime);
+         iterationCount = currentPower / 100;
          updatePowerOnDisplay(currentPower);
-         Serial.println(currentPower);
       }
-      golfShoot(currentPower);
+      if (iterationCount % 2 == 0)
+          currentPower = currentPower % 100;
+      else
+          currentPower = 100 - currentPower % 100; 
+      golfShoot(currentPower % 100);
+      toInitialPosition();
     }
-    toInitialPosition();
 }
 
 void golfShoot(int currentPower)
 {
     servoSpeed = convertFromPercents(currentPower, maxServoDelay);
     int currentDelay = max(minServoDelay, maxServoDelay - servoSpeed);
-    Serial.print("servo");
-    Serial.println(servoSpeed);
-    for(int i=90; i<=125; i++)
+    for(int i=servoInitial; i<=125; i++)
     {
         long currentTime = millis();
         servo.write(i);
@@ -67,35 +71,53 @@ void golfShoot(int currentPower)
     }
 }
 
-void drawPoint(Point point)
+void drawPoint(Point point, bool value)
 {
-    ledDisplay.setLed(0, boardSize - 1 - point.y, point.x, true);
+    ledDisplay.setLed(0, boardSize - 1 - point.y, point.x, value);
 }
 
 void updatePowerOnDisplay(int currentPower)
 {
-    int pointsCount = convertFromPercents(currentPower, maxPointsCount);
-    for (int i = 0; i < pointsCount; i++)
+    int possiblePointsCount = maxPointsCount * currentPower / 100;
+    int pointsCount = possiblePointsCount % maxPointsCount;
+    int iterationCount = possiblePointsCount / maxPointsCount;
+
+    if (iterationCount % 2 == 0)
     {
-        Point point;
-        point.x = i / boardSize;
-        point.y = i % boardSize;
-        drawPoint(point);
+      for (int i = 0; i < pointsCount; i++)
+      {
+          Point point;
+          point.x = i / boardSize;
+          point.y = i % boardSize;
+          drawPoint(point, true);
+      }
+    }
+    else
+    {
+      for (int i = 0; i < pointsCount; i++)
+      {
+          Point point;
+          point.x = boardSize - 1 - i / boardSize;
+          point.y = boardSize - 1 - i % boardSize;
+          drawPoint(point, false);
+      } 
     }
 }
 
 void toInitialPosition()
 {
-    servo.write(90);
+    for(int i=0; i<=90; i++)
+    {
+        servo.write(i);
+        delay(15);
+    }
     ledDisplay.clearDisplay(0);
 }
 
 int convertIntoPercents(long long currentValue, long long maxValue) // (текущее значение, значение для 100%)
 {
-    int percents = (currentValue * 100) / maxValue;
-    return min(percents, 100);
+    return (currentValue * 100) / maxValue;
 }
-
 
 int convertFromPercents(int percent, int maxValue) // (текущее значение в процентах, значение для 100%)
 {
