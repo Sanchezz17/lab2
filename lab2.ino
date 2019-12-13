@@ -11,7 +11,7 @@ Servo servo;
 int servoSpeed = 0;
 int servoInitial = 90;
 const int maxServoDelay = 10;
-const int minServoDelay = 2;
+const int minServoDelay = 1;
 
 const int boardSize = 8;
 const int maxPointsCount = 64;
@@ -40,8 +40,8 @@ void loop() {
       while (button.isHolded())
       {
          long long holdingTime = millis() - beginTime;
-         currentPower = convertIntoPercents(holdingTime, maxTime);
-         iterationCount = currentPower / 100;
+         currentPower = holdingTime / maxTime;
+         iterationCount = currentPower;
          updatePowerOnDisplay(currentPower);
       }
       if (iterationCount % 2 == 0)
@@ -55,7 +55,7 @@ void loop() {
 
 void golfShoot(int currentPower)
 {
-    servoSpeed = convertFromPercents(currentPower, maxServoDelay);
+    servoSpeed = currentPower * maxServoDelay;
     int currentDelay = max(minServoDelay, maxServoDelay - servoSpeed);
     for(int i=servoInitial; i<=125; i++)
     {
@@ -78,7 +78,7 @@ void drawPoint(Point point, bool value)
 
 void updatePowerOnDisplay(int currentPower)
 {
-    int possiblePointsCount = maxPointsCount * currentPower / 100;
+    int possiblePointsCount = maxPointsCount * currentPower;
     int pointsCount = possiblePointsCount % maxPointsCount;
     int iterationCount = possiblePointsCount / maxPointsCount;
 
@@ -112,14 +112,4 @@ void toInitialPosition()
         delay(15);
     }
     ledDisplay.clearDisplay(0);
-}
-
-int convertIntoPercents(long long currentValue, long long maxValue) // (текущее значение, значение для 100%)
-{
-    return (currentValue * 100) / maxValue;
-}
-
-int convertFromPercents(int percent, int maxValue) // (текущее значение в процентах, значение для 100%)
-{
-    return floor(maxValue * percent / 100);
 }
